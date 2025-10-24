@@ -17,12 +17,13 @@ import com.example.proyecto_app.data.local.user.UserEntity
     ]
 )
 data class PublicacionEntity(
-    @PrimaryKey(autoGenerate = true)//le decimos que el ide sea la cclave primaria
+    @PrimaryKey(autoGenerate = true)//le decimos que el id sea la cclave primaria
     val id: Long = 0L,
     val userId: Long,
     val category: String,
     val imageUri: String?, // Ruta del archivo local de donde sacamos la imagen
     val title: String,
+    val description: String?,//el campo de descripccion de la publicacion y puede ser nula  con el ?
     val authorName: String,
     val createdAt: Long = System.currentTimeMillis(),// esto esm para cuando se haga la publicacion guarde la fecha y la hora en cual se hiso
     val status: String = "activo",

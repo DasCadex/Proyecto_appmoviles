@@ -66,7 +66,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("androidx.compose.material:material-icons-extended")
 
-
+    implementation("androidx.compose.material3:material3:1.2.1")
     //libreria para base de datos con pligin de google
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
@@ -75,7 +75,7 @@ dependencies {
 
     //nueva librerai que nos permitira tiomar imagenes de la galeria
     // Coil for Image Loading
-    implementation("io.coil-kt:coil-compose:2.5.0") // en general sirve para mostrar y cargar las imagenes
+    implementation("io.coil-kt:coil-compose:2.7.0") // en general sirve para mostrar y cargar las imagenes
 
 
 

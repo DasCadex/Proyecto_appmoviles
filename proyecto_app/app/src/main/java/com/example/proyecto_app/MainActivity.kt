@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.proyecto_app.data.local.database.AppDatabase
+import com.example.proyecto_app.data.repository.CommentRepository
 import com.example.proyecto_app.data.repository.PublicationRepository
 import com.example.proyecto_app.data.repository.UserRepository
 import com.example.proyecto_app.navigation.AppNabGraph
@@ -38,7 +39,12 @@ fun AppRoot() { // Raíz de la app para separar responsabilidades
     val userRepository = UserRepository(db.UserDao())
     val publicationRepository = PublicationRepository(db.publicacionDao())
 
-    val factory = AuthViewModelFactory(userRepository, publicationRepository)
+    // ✅ CREAMOS EL CommentRepository
+    val commentRepository = CommentRepository(db.commentDao())
+
+    // ✅ PASAMOS CommentRepository A LA FACTORY
+    val factory = AuthViewModelFactory(userRepository, publicationRepository, commentRepository)
+
 
     val authViewModel: AuthViewModel = viewModel(factory = factory)
     val homeViewModel: HomeViewModel = viewModel(factory = factory)
@@ -46,12 +52,15 @@ fun AppRoot() { // Raíz de la app para separar responsabilidades
 
     val navController = rememberNavController()
     Surface(color = MaterialTheme.colorScheme.background) {
+
         AppNabGraph(
             navController = navController,
             authViewModel = authViewModel,
             homeViewModel = homeViewModel,
-            addPublicationViewModel = addPublicationViewModel
+            addPublicationViewModel = addPublicationViewModel,
+            viewModelFactory = factory // ✅ PASAMOS LA FACTORY
         )
+
     }
 
 }

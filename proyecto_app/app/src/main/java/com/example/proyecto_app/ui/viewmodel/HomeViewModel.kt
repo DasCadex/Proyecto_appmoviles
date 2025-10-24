@@ -14,16 +14,15 @@ data class PrincipalUiState(
     val isLoading: Boolean = false
 )
 
-class HomeViewModel(
+class HomeViewModel(//solo definimos el view model y se define principalmente para separar la loguica de la interfac de UI y sobrevivir a cambios de configuracion
     private val publicationRepository: PublicationRepository
 ) : ViewModel() {
 
-    // Exponemos el estado de las publicaciones a la UI usando un StateFlow.
-    // Se actualiza automáticamente gracias al Flow del Repositorio.
-    val publicationsState: StateFlow<List<PublicacionEntity>> = publicationRepository.getAllPublications()
+                                                                    //aqui llamamos al repositorio para obetener el FLOW(consulta de base de datos) de las publicaciones y se actualicen(eliminar o mnadar una publicacion)
+    val publicationsState: StateFlow<List<PublicationWithAuthor>> = publicationRepository.getAllPublicationsWithAuthors()
         .stateIn(
-            scope = viewModelScope,
+            scope = viewModelScope,//esto  hace que el flow  deje de actualizar la info cuando se cierre
             started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = emptyList()
+            initialValue = emptyList()//con esto hacemos que li lista tenga un valor de cero para cuando la base de datos inici no tenga un error
         )
 }

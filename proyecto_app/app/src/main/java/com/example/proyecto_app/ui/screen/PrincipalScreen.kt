@@ -19,8 +19,11 @@ import com.example.proyecto_app.ui.viewmodel.HomeViewModel
 @Composable
 fun PrincipalScreen(
     homeViewModel: HomeViewModel,
-    onGoToAddPublication: () -> Unit
+    onGoToAddPublication: () -> Unit,
+    onPublicationClick: (Long) -> Unit
 ) {
+
+    // El 'publications' ahora es una lista de 'PublicationWithAuthor'
     val publications by homeViewModel.publicationsState.collectAsState()
     val categories = listOf("Shooter", "RPG", "Indie", "Noticias", "Retro")//lista de las categorias existentes
 
@@ -55,9 +58,15 @@ fun PrincipalScreen(
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(publications) { publicacion ->
-                PublicationCard(publicacion= publicacion)
+            items(publications) { publicationWithAuthor ->
+                PublicationCard(
+                    publicationWithAuthor = publicationWithAuthor,
+                    // ✅ LLAMAMOS A LA ACCIÓN AL HACER CLICK
+                    onClick = { onPublicationClick(publicationWithAuthor.publication.id) }
+                )
             }
+
+
         }
     }
 }

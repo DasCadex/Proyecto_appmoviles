@@ -20,15 +20,30 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import com.example.proyecto_app.data.local.user.UserEntity
 import com.example.proyecto_app.ui.viewmodel.AddPublicationViewModel
 
 @Composable
 fun AddPublicationScreen(
     addPublicationViewModel: AddPublicationViewModel,
-    onPublicationSaved: () -> Unit
+    onPublicationSaved: () -> Unit,
+    currentUser: UserEntity?// asi indicamo el usuario que esta publicando algo  para saber el autor
 ) {
-    val uiState = addPublicationViewModel.uiState
+    val uiState = addPublicationViewModel.uiState//con esto llamamos al añadir publicancion y cada vez que se modifique lo actualiza  y reescribira la nueva pantalla cn la infro que le demos
+
     val context = LocalContext.current
+
+    val customTextFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        cursorColor = Color.White,
+        focusedBorderColor = Color(0xFF00BFFF), // Cyan
+        unfocusedBorderColor = Color.LightGray,
+        focusedLabelColor = Color.LightGray,
+        unfocusedLabelColor = Color.LightGray,
+        focusedContainerColor = Color.Transparent, // Fondo transparente
+        unfocusedContainerColor = Color.Transparent
+    )
 
     //esta varible sirve para anbrir la galeria
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -40,8 +55,8 @@ fun AddPublicationScreen(
     }
 
     LaunchedEffect(uiState.saveSuccess) {
-        if (uiState.saveSuccess) {
-            addPublicationViewModel.clearSuccessFlag()
+        if (uiState.saveSuccess) {// con esto le decimos qur guarde en la baser de datos
+            addPublicationViewModel.clearSuccessFlag()//luego de guardar la info limpiara los campos
             onPublicationSaved()
         }
     }
@@ -58,10 +73,27 @@ fun AddPublicationScreen(
 
         OutlinedTextField(
             value = uiState.title,
+
             onValueChange = { addPublicationViewModel.onTitleChange(it) },
             label = { Text("Título") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = customTextFieldColors
+
+
         )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = uiState.description,
+            onValueChange = { addPublicationViewModel.onDescriptionChange(it) },
+            label = { Text("Descripción (informativo)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp), // Damos más altura para escribir
+            maxLines = 5, // Permitimos varias líneas
+            colors = customTextFieldColors
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
 
         Box(
@@ -69,12 +101,12 @@ fun AddPublicationScreen(
                 .fillMaxWidth()
                 .height(200.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF1A1233))
+                .background(Color.White)
                 .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp))
                 .clickable { imagePickerLauncher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
-            if (uiState.imageUri != null) {
+            if (uiState.imageUri != null) {//con esto mostrara la imagen si la seleccionamos
                 Image(
                     painter = rememberAsyncImagePainter(uiState.imageUri),
                     contentDescription = "Imagen seleccionada",
@@ -88,8 +120,14 @@ fun AddPublicationScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { addPublicationViewModel.savePublication(context) },
-            enabled = !uiState.isSaving && uiState.title.isNotBlank() && uiState.imageUri != null,
+            onClick = {
+
+                currentUser?.let { user ->//con esto llamamos al usuario que subio la publicacion para obtener su nombre
+                    addPublicationViewModel.savePublication(context, user)
+                }
+            },
+            // La habilitación del botón también debe verificar que currentUser no sea null
+            enabled = !uiState.isSaving && uiState.title.isNotBlank() && uiState.description.isNotBlank() && uiState.imageUri != null && currentUser != null,
             modifier = Modifier.fillMaxWidth()
         ) {
             if (uiState.isSaving) {
@@ -100,3 +138,6 @@ fun AddPublicationScreen(
         }
     }
 }
+
+
+

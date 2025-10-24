@@ -14,170 +14,145 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.proyecto_app.data.local.user.UserEntity
 
-//estrutura para manipular los datos de los fromularios , siemopre se encargab de manipular los datos
-//si una pestaña comparte inffo solo se hace uno si no se hav¿cen mas
 
-data class LoginUistate(//tambien es el estado de la pantalla de login
+data class LoginUistate(
     val loginInput: String="",
     val pass: String ="",
     val loginInputError: String?=null,
     val passError:String?=null,
     val isSubmitting: Boolean = false,
-    val canSubmit: Boolean= false,//habilito o no el boton del formulario
-    val success: Boolean= false,//resultado si aprobo con los formularios
-    val errorMsg: String?=null,//error general del formulario (usuario no exite o contrseña incorrecta)
-
-
+    val canSubmit: Boolean= false,
+    val success: Boolean= false,
+    val errorMsg: String?=null
 )
 
 data class RegisterUistate(
-    //variables del formulario
     val nameuser:String="",
     val email:String="",
     val phone:String="",
     val pass:String="",
     val confirm:String="",
-    //variable errores de campo
     val nameError:String?=null,
     val emailError:String?=null,
     val phoneError:String?=null,
     val passError:String?=null,
     val confirmError:String?=null,
-    //variable para los estados
-    val isSubmitting: Boolean = false,//flag de carga
-    val canSubmit: Boolean = false, //habilito o no el boton del formulario
-    val success: Boolean = false,//resultado ok del formulario
-    val errorMsg: String? = null //error general del formulario (usuario ya existente)
-
-
+    val isSubmitting: Boolean = false,
+    val canSubmit: Boolean = false,
+    val success: Boolean = false,
+    val errorMsg: String? = null
 )
 
-//estructura estandar para los usuario
-//estos son los datos que se guardartanm en el arregloo en futuro en una base de datos
 
-private data class DemoUser(
-    val nameuser: String,
-    val email: String,
-    val phone: String,
-    val pass: String
-)
-//arreglo donde se guardaran los datos
 class AuthViewModel(
-    //en esta parte inyectaremo el  nuevo repositorio
-    private val repository: UserRepository
-
+    private val repository: UserRepository//nos comunicamos con UserRepository para pedirle los datos
 ): ViewModel(){
 
     private val _login= MutableStateFlow(LoginUistate())
-
     val home: StateFlow<LoginUistate> =_login
 
-
-
     private val _register = MutableStateFlow(RegisterUistate())
-
     val register: StateFlow<RegisterUistate> = _register
 
-    //Funcion para habilitar el botón de entrar en el login
 
-    fun onLoginInputChange(value: String){ // <--- CAMBIO DE NOMBRE Y LÓGICA
+    private val _currentUser = MutableStateFlow<UserEntity?>(null)
+    val currentUser: StateFlow<UserEntity?> = _currentUser
+
+
+    fun onLoginInputChange(value: String){
         _login.update { it.copy(loginInput = value, loginInputError = validateLoginInput(value)) }
         recomputeLoginCanSubmit()
     }
 
-    // Actualizamos las variables que revisa
     fun recomputeLoginCanSubmit(){
         val s = _login.value
-        val can = s.loginInputError == null && s.loginInput.isNotBlank() // <--- CAMBIO AQUÍ
+        val can = s.loginInputError == null && s.loginInput.isNotBlank()
                 && s.pass.isNotBlank()  && s.passError == null
         _login.update { it.copy(canSubmit = can,) }
     }
 
     fun onLoginPassChange(value: String){
         _login.update { it.copy(pass = value,) }
-        recomputeLoginCanSubmit() // Esta llamada no cambia
+        recomputeLoginCanSubmit()
     }
-
-
 
     fun submitLogin(){
         val s = _login.value
         if(!s.canSubmit || s.isSubmitting) return
         viewModelScope.launch {
-            _login.update { it.copy(isSubmitting = true, errorMsg = null, success = false) }
-            delay(500)
+            _login.update { it.copy(isSubmitting = true, errorMsg = null) }
             val result = repository.login(s.loginInput.trim(),s.pass)
 
-            _login.update {
+
+            _login.update { currentState ->
                 if (result.isSuccess) {
-                    it.copy(isSubmitting = false, success = true, errorMsg = null) // OK: éxito
+
+                    val user = result.getOrNull()
+                    _currentUser.value = user
+                    currentState.copy(isSubmitting = false, success = true, errorMsg = null)
                 } else {
-                    it.copy(isSubmitting = false, success = false,
-                        errorMsg = result.exceptionOrNull()?.message ?: "Error de autenticación")
+                    currentState.copy(
+                        isSubmitting = false,
+                        success = false,
+                        errorMsg = result.exceptionOrNull()?.message ?: "Error de autenticación"
+                    )
                 }
-
             }
-        }
 
+        }
     }
 
-
-
-    // Limpia banderas tras navegar
     fun clearLoginResult(){
         _login.update { it.copy(success =  false, errorMsg = null) }
     }
 
-    // ----------------- REGISTRO: handlers y envío -----------------
 
-    fun onNameChange(value: String) {                       // Handler del nombre
-        val filtered = value.filter { it.isLetter() || it.isWhitespace() } // Filtramos números/símbolos (solo letras/espacios)
-        _register.update {                                  // Guardamos + validamos
+    fun onNameChange(value: String) {
+        val filtered = value.filter { it.isLetter() || it.isWhitespace() }
+        _register.update {
             it.copy(nameuser = filtered, nameError = validateNameUserLetterOnly(filtered))
         }
-        recomputeRegisterCanSubmit()                        // Recalculamos habilitado
-    }
-
-    fun onRegisterEmailChange(value: String) {              // Handler del email
-        _register.update { it.copy(email = value, emailError = validateEmail(value)) } // Guardamos + validamos
         recomputeRegisterCanSubmit()
     }
 
-    fun onPhoneChange(value: String) {                      // Handler del teléfono
-        val digitsOnly = value.filter { it.isDigit() }      // Dejamos solo dígitos
-        _register.update {                                  // Guardamos + validamos
+    fun onRegisterEmailChange(value: String) {
+        _register.update { it.copy(email = value, emailError = validateEmail(value)) }
+        recomputeRegisterCanSubmit()
+    }
+
+    fun onPhoneChange(value: String) {
+        val digitsOnly = value.filter { it.isDigit() }
+        _register.update {
             it.copy(phone = digitsOnly, phoneError = validatePhoneDigitsOnly(digitsOnly))
         }
         recomputeRegisterCanSubmit()
     }
 
-    fun onRegisterPassChange(value: String) {               // Handler de la contraseña
-        _register.update { it.copy(pass = value, passError = validateStrongPassword(value)) } // Validamos seguridad
-        // Revalidamos confirmación con la nueva contraseña
+    fun onRegisterPassChange(value: String) {
+        _register.update { it.copy(pass = value, passError = validateStrongPassword(value)) }
         _register.update { it.copy(confirmError = validateConfirm(it.pass, it.confirm)) }
         recomputeRegisterCanSubmit()
     }
 
-    fun onConfirmChange(value: String) {                    // Handler de confirmación
-        _register.update { it.copy(confirm = value, confirmError = validateConfirm(it.pass, value)) } // Guardamos + validamos
+    fun onConfirmChange(value: String) {
+        _register.update { it.copy(confirm = value, confirmError = validateConfirm(it.pass, value)) }
         recomputeRegisterCanSubmit()
     }
 
-    //con esto veremos los errores , con el vals obtendra el estado del formulario
-    private fun recomputeRegisterCanSubmit() {              // Habilitar "Registrar" si todo OK
-        val s = _register.value                              // Tomamos el estado actual
-        val noErrors = listOf(s.nameError, s.emailError, s.phoneError, s.passError, s.confirmError).all { it == null } // crea una lista con todos los errores posibles que existan y con el punto alll para verifivcar qe no tengan error
-        val filled = s.nameuser.isNotBlank() && s.email.isNotBlank() && s.phone.isNotBlank() && s.pass.isNotBlank() && s.confirm.isNotBlank() // Todo lleno
-        _register.update { it.copy(canSubmit = noErrors && filled) } // Actualizamos flag
+    private fun recomputeRegisterCanSubmit() {
+        val s = _register.value
+        val noErrors = listOf(s.nameError, s.emailError, s.phoneError, s.passError, s.confirmError).all { it == null }
+        val filled = s.nameuser.isNotBlank() && s.email.isNotBlank() && s.phone.isNotBlank() && s.pass.isNotBlank() && s.confirm.isNotBlank()
+        _register.update { it.copy(canSubmit = noErrors && filled) }
     }
 
     fun submitRegister() {
-        val s = _register.value                              // lo traemos para saber el estodo si esta ok o no
-        if (!s.canSubmit || s.isSubmitting) return          // con esto decimos que si elk formulario este vacio no cumpla y wel otro es pare que no pulse el boton varrias veces y no mande las cosas mucahs veces
-        viewModelScope.launch {                             // Corrutina para darle un tiempo de carga
-            _register.update { it.copy(isSubmitting = true, errorMsg = null, success = false) } // Loading
-            delay(700)
+        val s = _register.value
+        if (!s.canSubmit || s.isSubmitting) return
+        viewModelScope.launch {
+            _register.update { it.copy(isSubmitting = true, errorMsg = null, success = false) }
 
             val result = repository.register(
                 nameuser = s.nameuser.trim(),
@@ -185,25 +160,26 @@ class AuthViewModel(
                 phone = s.phone.trim(),
                 pass = s.pass
             )
-            // Interpreta resultado y actualiza estado
-            _register.update {
+
+            _register.update { currentState ->
                 if (result.isSuccess) {
-                    it.copy(isSubmitting = false, success = true, errorMsg = null)  // OK
+
+                    currentState.copy(isSubmitting = false, success = true, errorMsg = null)
                 } else {
-                    it.copy(isSubmitting = false, success = false,
-                        errorMsg = result.exceptionOrNull()?.message ?: "No se pudo registrar")
+
+                    currentState.copy(
+                        isSubmitting = false,
+                        success = false,
+                        errorMsg = result.exceptionOrNull()?.message ?: "No se pudo registrar"
+                    )
                 }
             }
-
 
         }
     }
 
-    fun clearRegisterResult() {                             // Limpia banderas tras navegar
+    fun clearRegisterResult() {
         _register.update { it.copy(success = false, errorMsg = null) }
     }
-
-
-
 
 }

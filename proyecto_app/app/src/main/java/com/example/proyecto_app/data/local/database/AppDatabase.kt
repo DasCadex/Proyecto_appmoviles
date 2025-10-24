@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.proyecto_app.data.local.comentarios.CommentDao
+import com.example.proyecto_app.data.local.comentarios.CommentEntity
 
 import com.example.proyecto_app.data.local.publicacion.PublicacionDao
 import com.example.proyecto_app.data.local.publicacion.PublicacionEntity
@@ -15,14 +17,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [UserEntity::class, PublicacionEntity::class],
-    version = 1,
+    //datos precargados y llamamos los entitis de cada uno
+    entities = [UserEntity::class, PublicacionEntity::class, CommentEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase: RoomDatabase(){
 
     abstract fun UserDao(): UserDao
     abstract fun publicacionDao(): PublicacionDao
+
+    abstract fun commentDao(): CommentDao
+
 
     companion object{
         @Volatile
@@ -55,7 +61,7 @@ abstract class AppDatabase: RoomDatabase(){
 
                                     // Esta parte  depende de los IDs que Room genere.
                                     val publications = listOf(
-                                        PublicacionEntity(userId = 2, category = "Shooter", imageUri = null, title = "Bienvenido a pixelhub", authorName = "John Doe", likes = 42)
+                                        PublicacionEntity(userId = 2, category = "Shooter", imageUri = null, title = "Bienvenido a pixelhub", authorName = "John Doe", likes = 42, description = "")
                                     )
                                     publications.forEach { publicationDao.insert(it) }
                                 }
