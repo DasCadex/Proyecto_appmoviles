@@ -18,27 +18,29 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 
-// este es el cerebro al momento de crear una pulblicacion
+//paso numero 5 los viewmodel son los cerebros de cada pantalla y pide los dato y acciones al repositorio
 data class AddPublicationUiState(//con esta es la informacion que se usara para generar la UI
     val title: String = "",
     val description: String = "",
     val imageUri: Uri? = null, // Guardamos la URI de la imagen seleccionada
-    val category: String = "Shooter",
+    val selectedCategory: String = "Shooter",
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false
 )
 
 class AddPublicationViewModel(
-    private val repository: PublicationRepository
+    private val repository: PublicationRepository//llamamos al repositorio
 ) : ViewModel() {
 
+    //variable del esatdo principal y guarda el esatado actual de la pantalla ( lo que esta en los campos )
     var uiState by mutableStateOf(AddPublicationUiState())
         private set
 
+    val categories = listOf("Shooter", "RPG", "Indie", "Noticias", "Retro")
     fun onTitleChange(title: String) {
         uiState = uiState.copy(title = title)
     }
-
+    //se llama cuando se abre la galeria
     fun onImageSelected(uri: Uri) {
         uiState = uiState.copy(imageUri = uri)
     }
@@ -46,8 +48,12 @@ class AddPublicationViewModel(
     fun onDescriptionChange(description: String) {
         uiState = uiState.copy(description = description)
     }
+    //se llama cuando el usuario abre el panel de categorias
+    fun onCategoryChange(category: String) {
+        uiState = uiState.copy(selectedCategory = category)
+    }
 
-    // Función principal para guardar la publicación
+    // Función principal para guardar la publicación dentro de la base de datos y el repositorio
     fun savePublication(context: Context, author: UserEntity) {
         if (uiState.isSaving || uiState.title.isBlank() || uiState.description.isBlank() || uiState.imageUri == null) return
 
@@ -62,7 +68,7 @@ class AddPublicationViewModel(
                 authorName = author.nameuser, // Usamos el nombre del autor
                 title = uiState.title,
                 description = uiState.description.trim(),
-                category = uiState.category,
+                category = uiState.selectedCategory,
                 imageUri = newImageUri.toString(), // Guardamos la RUTA como String
                 likes = 0
             )

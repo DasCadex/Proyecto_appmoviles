@@ -5,6 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
+//paso 2  esta es la parte donde se construye las operaciones que se pueden hacer en las base de datos
+//por ejemplo eliminar , actualiza o agregar
 
 @Dao
 interface CommentDao {

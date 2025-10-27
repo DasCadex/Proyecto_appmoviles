@@ -4,6 +4,9 @@ import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import com.example.proyecto_app.data.local.user.UserEntity
 
+//los que terminen en entiti son los ciminetos del proyecto  que se encargara de manipular
+//la informacion de nuestra app (todos lo que es entiti es el paso 1)
+
 @Entity(
     tableName = "publicaciones",//como se llamara la tabla
     foreignKeys = [//esto nos ayudara hace rla relacion de la clave foreana

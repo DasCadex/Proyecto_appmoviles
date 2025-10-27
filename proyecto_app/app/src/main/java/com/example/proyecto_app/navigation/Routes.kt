@@ -11,7 +11,7 @@ sealed class Route(val path: String) {
     //se agrega la ruta nueva
     data object AddPublication : Route("add_publication")
 
-    // ✅ NUEVA RUTA CON ARGUMENTO para la pantalla de detalle
+
     // Se pasará el ID de la publicación en la ruta, ej: "publication_detail/5"
     object PublicationDetail : Route("publication_detail/{publicationId}") {
         // Función helper para construir la ruta con un ID específico

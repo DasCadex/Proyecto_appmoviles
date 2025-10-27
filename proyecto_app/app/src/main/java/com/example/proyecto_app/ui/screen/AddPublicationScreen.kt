@@ -12,6 +12,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,6 +27,8 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.proyecto_app.data.local.user.UserEntity
 import com.example.proyecto_app.ui.viewmodel.AddPublicationViewModel
 
+
+@OptIn(ExperimentalMaterial3Api::class) // Necesario para ExposedDropdownMenuBox
 @Composable
 fun AddPublicationScreen(
     addPublicationViewModel: AddPublicationViewModel,
@@ -32,6 +38,12 @@ fun AddPublicationScreen(
     val uiState = addPublicationViewModel.uiState//con esto llamamos al añadir publicancion y cada vez que se modifique lo actualiza  y reescribira la nueva pantalla cn la infro que le demos
 
     val context = LocalContext.current
+    // Obtenemos la lista de categorías del ViewModel
+    val categories = addPublicationViewModel.categories
+
+    // Estado local para controlar si el menú desplegable está expandido
+    var categoryMenuExpanded by remember { mutableStateOf(false) }
+
 
     val customTextFieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = Color.White,
@@ -93,6 +105,54 @@ fun AddPublicationScreen(
             maxLines = 5, // Permitimos varias líneas
             colors = customTextFieldColors
         )
+
+        ExposedDropdownMenuBox(
+            expanded = categoryMenuExpanded,
+            onExpandedChange = { categoryMenuExpanded = !categoryMenuExpanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // TextField que muestra la categoría seleccionada y abre el menú
+            OutlinedTextField(
+                value = uiState.selectedCategory, // Muestra la categoría del ViewModel
+                onValueChange = {}, // No editable directamente
+                readOnly = true,
+                label = { Text("Categoría") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryMenuExpanded)
+                },
+                modifier = Modifier
+                    .menuAnchor() // Importante para conectar con el menú
+                    .fillMaxWidth(),
+                // Colores específicos para el Dropdown (un poco diferentes)
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = Color(0xFF00BFFF),
+                    unfocusedBorderColor = Color.LightGray,
+                    focusedLabelColor = Color.LightGray,
+                    unfocusedLabelColor = Color.LightGray,
+                    focusedTrailingIconColor = Color.White,
+                    unfocusedTrailingIconColor = Color.White,
+
+                )
+            )
+
+            // Contenido del menú desplegable
+            ExposedDropdownMenu(
+                expanded = categoryMenuExpanded,
+                onDismissRequest = { categoryMenuExpanded = false } // Se cierra si tocas fuera
+            ) {
+                categories.forEach { category ->
+                    DropdownMenuItem(
+                        text = { Text(category) },
+                        onClick = {
+                            addPublicationViewModel.onCategoryChange(category) // Llama al ViewModel
+                            categoryMenuExpanded = false // Cierra el menú
+                        }
+                    )
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

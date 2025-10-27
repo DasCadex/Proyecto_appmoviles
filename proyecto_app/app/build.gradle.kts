@@ -72,6 +72,8 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    implementation("androidx.compose.animation:animation")
+
 
     //nueva librerai que nos permitira tiomar imagenes de la galeria
     // Coil for Image Loading

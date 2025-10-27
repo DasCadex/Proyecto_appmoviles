@@ -21,3 +21,5 @@ data class PublicationWithAuthor(
     )
     val author: UserEntity//con esto trae toda la info del usuario que publico
 )
+//en pocas palabras esto no es una tabla de base de datos es un espacio temporal que se usa para combinar
+//la tablabla publicaciones y susarios para hacer como un join

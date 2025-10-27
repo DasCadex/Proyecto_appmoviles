@@ -48,7 +48,7 @@ fun AppNabGraph(
     val goPrincipal:()-> Unit = {navController.navigate(Route.Principal.path)}
     val goAddPubli:()-> Unit= {navController.navigate(Route.AddPublication.path)}
 
-    // ✅ RECOGEMOS EL ESTADO DEL USUARIO ACTUAL
+
     val currentUser by authViewModel.currentUser.collectAsState()
     val currentDestination by navController.currentBackStackEntryAsState()
     val currentRoute = currentDestination?.destination?.route
@@ -132,7 +132,7 @@ fun AppNabGraph(
                     arguments = listOf(navArgument("publicationId") { type = NavType.LongType })
                 ) { // No necesitamos 'it' aquí
                     PublicationDetailScreen(
-                        // ✅ CORRECCIÓN: Usamos el nombre correcto del parámetro
+
                         viewModelFactory = viewModelFactory,
                         currentUser = currentUser,
                         onNavigateBack = { navController.popBackStack() }

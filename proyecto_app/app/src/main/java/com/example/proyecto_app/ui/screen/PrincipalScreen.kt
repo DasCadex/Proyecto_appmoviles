@@ -1,3 +1,6 @@
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.unit.dp
 import com.example.proyecto_app.ui.components.PublicationCard
 
@@ -25,7 +29,9 @@ fun PrincipalScreen(
 
     // El 'publications' ahora es una lista de 'PublicationWithAuthor'
     val publications by homeViewModel.publicationsState.collectAsState()
-    val categories = listOf("Shooter", "RPG", "Indie", "Noticias", "Retro")//lista de las categorias existentes
+    val selectedCategory by homeViewModel.selectedCategory.collectAsState()
+    val categories = homeViewModel.categories // Usamos la lista del ViewModel
+
 
     Column(
         modifier = Modifier
@@ -39,7 +45,11 @@ fun PrincipalScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             items(categories) { category ->
-                Chip(label = category, selected = category == "Shooter")
+                Chip(
+                    label = category,
+                    selected = (selectedCategory == category) || (category == "Todas" && selectedCategory == null),
+                    onClick = { homeViewModel.selectCategory(category) } // Llama al ViewModel
+                )
             }
             item {//el botono para agregar una publicacion y que nos redireccionara
                 Button(
@@ -52,38 +62,51 @@ fun PrincipalScreen(
             }
         }
 
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Lista de Publicaciones
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(publications) { publicationWithAuthor ->
-                PublicationCard(
-                    publicationWithAuthor = publicationWithAuthor,
-                    // ✅ LLAMAMOS A LA ACCIÓN AL HACER CLICK
-                    onClick = { onPublicationClick(publicationWithAuthor.publication.id) }
-                )
+            // USAMOS itemsIndexed para un posible efecto escalonado (opcional)
+            //    Si no quieres escalonar, puedes seguir usando items()
+            itemsIndexed(
+                items = publications,
+                key = { _, item -> item.publication.id } // Clave única para cada item
+            ) { index, publicationWithAuthor ->
+
+                // ENVOLVEMOS LA TARJETA CON AnimatedVisibility
+                AnimatedVisibility(
+                    visible = true, // Siempre visible una vez que entra en la composición
+                    enter = fadeIn(
+                        // Opcional: Puedes añadir un pequeño retraso basado en el índice
+                        // animationSpec = tween(delayMillis = index * 50)
+                    ),
+                    exit = fadeOut() // Efecto al salir (si la lista cambiara drásticamente)
+                ) {
+                    // La tarjeta como la tenías antes
+                    PublicationCard(
+                        publicationWithAuthor = publicationWithAuthor,
+                        onClick = { onPublicationClick(publicationWithAuthor.publication.id) },
+                        onLikeClick = { homeViewModel.likePublication(publicationWithAuthor.publication.id) }
+                    )
+                }
             }
-
-
         }
     }
 }
 
 @Composable
-fun Chip(label: String, selected: Boolean) {
+//AÑADIMOS onClick AL CHIP
+fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
     AssistChip(
-        onClick = { /* TODO: Filtrar por categoría y en esta parte se encargara de los botonoes */ },
+        onClick = onClick, // Usamos el parámetro
         label = { Text(label) },
         colors = AssistChipDefaults.assistChipColors(
             containerColor = if (selected) Color(0xFF00BFFF) else Color.Transparent,
             labelColor = Color.White
         ),
-        border = BorderStroke(
-            width = 1.dp, // Dale un grosor al borde
-            color = if (selected) Color.Transparent else Color.White
-
-        )
+        border = BorderStroke(1.dp, if (selected) Color.Transparent else Color.White)
     )
 }

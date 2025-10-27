@@ -3,13 +3,20 @@ package com.example.proyecto_app.ui.screen
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 
+
+import androidx.compose.material.icons.filled.Share // Para el icono
+import androidx.compose.ui.platform.LocalContext // Para obtener el contexto
+import android.content.Intent // Para crear la acción de compartir
+import android.util.Log // Para depuración (opcional pero útil)
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -49,6 +56,10 @@ fun PublicationDetailScreen(
 
     val publicationWithAuthor = detailState.publicationWithAuthor
 
+    val context = LocalContext.current
+
+    val adminRoleId = 1L
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -58,7 +69,58 @@ fun PublicationDetailScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1A1233))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1A1233)),
+                actions = {
+
+                    if (currentUser?.roleId == adminRoleId) {
+                        IconButton(onClick = { viewModel.deletePublication() }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Borrar Publicación",
+                                tint = Color.Red
+                            )
+                        }
+                    }
+
+                    if (publicationWithAuthor != null) {
+                        IconButton(onClick = {
+
+                            try {
+                                Log.d("ShareButton", "Botón Compartir presionado") // Log para depurar
+
+                                // 1. Crear el Intent de tipo ACTION_SEND
+                                val sendIntent: Intent = Intent().apply {
+                                    action = Intent.ACTION_SEND // La acción es "enviar"
+                                    // 2. Poner los datos a compartir
+                                    putExtra(Intent.EXTRA_SUBJECT, "Mira esta publicación: ${publicationWithAuthor.publication.title}")
+                                    putExtra(Intent.EXTRA_TEXT, "Echa un vistazo a '${publicationWithAuthor.publication.title}' por ${publicationWithAuthor.author.nameuser} en PixelHub!")
+                                    // 3. Especificar el tipo de dato
+                                    type = "text/plain" // Es texto simple
+                                }
+
+                                // 4. Crear el Chooser (el diálogo que muestra las apps)
+                                val shareIntent = Intent.createChooser(sendIntent, "Compartir publicación vía...")
+
+                                // 5. Iniciar la actividad (mostrar el diálogo)
+                                context.startActivity(shareIntent)
+                                Log.d("ShareButton", "Chooser iniciado correctamente")
+
+                            } catch (e: Exception) {
+                                // Si algo falla, lo veremos en Logcat
+                                Log.e("ShareButton", "Error al intentar compartir", e)
+                                // Aquí podrías mostrar un mensaje al usuario (Toast, Snackbar) si quieres
+                            }
+
+                        }) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = "Compartir Publicación",
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                },
             )
         },
         containerColor = Color(0xFF3A006A) // Fondo morado oscuro
@@ -76,6 +138,15 @@ fun PublicationDetailScreen(
             val author = publicationWithAuthor.author
 
             Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)) {
+
+                //  SECCIÓN DE COMENTARIOS CON CONTADOR REAL
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Comentarios", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    // Usamos el tamaño de la lista de comentarios del estado
+                    Text("(${detailState.comments.size})", style = MaterialTheme.typography.titleMedium, color = Color.Gray)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 // Contenido de la Publicación (similar a PublicationCard pero sin Card)
                 Text(publication.title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
                 Text("por ${author.nameuser}", style = MaterialTheme.typography.bodySmall, color = Color.LightGray)
@@ -126,7 +197,7 @@ fun PublicationDetailScreen(
                             onValueChange = { viewModel.onNewCommentChange(it) },
                             placeholder = { Text("Escribe un comentario...") },
                             modifier = Modifier.weight(1f),
-                            // ✅ --- INICIO DE LA CORRECCIÓN ---
+
                             // Usamos el parámetro 'colors' del OutlinedTextField directamente
                             colors = OutlinedTextFieldDefaults.colors(
                                 // Colores para el texto y cursor

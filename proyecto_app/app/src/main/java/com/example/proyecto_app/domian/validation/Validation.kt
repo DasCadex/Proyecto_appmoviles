@@ -3,6 +3,8 @@ package com.example.proyecto_app.domian.validation
 import android.util.Patterns
 
 //validacion del correo electronico
+//paso numero 4 en esta paso se hara unicamenta la validacion de los parametros que usaremos al momento
+//de integrarlos a la base de datos
 
 fun validateEmail(email: String ): String?{
     if(email.isBlank()) return "El correo es obligatorio "

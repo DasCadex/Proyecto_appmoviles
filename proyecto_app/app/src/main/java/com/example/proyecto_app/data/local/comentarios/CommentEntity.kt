@@ -6,6 +6,9 @@ import androidx.room.PrimaryKey
 import com.example.proyecto_app.data.local.publicacion.PublicacionEntity
 
 import com.example.proyecto_app.data.local.user.UserEntity
+//los que terminen en entiti son los ciminetos del proyecto  que se encargara de manipular
+//la informacion de nuestra app (todos lo que es entiti es el paso 1)
+
 
 @Entity(
     tableName = "comentarios",

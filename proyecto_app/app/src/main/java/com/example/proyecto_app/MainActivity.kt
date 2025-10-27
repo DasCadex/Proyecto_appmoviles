@@ -36,14 +36,16 @@ fun AppRoot() { // Raíz de la app para separar responsabilidades
     val context = LocalContext.current.applicationContext
     val db = AppDatabase.getInstance(context)
 
-    val userRepository = UserRepository(db.UserDao())
+    val userRepository = UserRepository(db.UserDao(), db.roleDao())
     val publicationRepository = PublicationRepository(db.publicacionDao())
 
-    // ✅ CREAMOS EL CommentRepository
+    // CREAMOS EL CommentRepository
     val commentRepository = CommentRepository(db.commentDao())
 
-    // ✅ PASAMOS CommentRepository A LA FACTORY
+    // PASAMOS CommentRepository A LA FACTORY
     val factory = AuthViewModelFactory(userRepository, publicationRepository, commentRepository)
+
+
 
 
     val authViewModel: AuthViewModel = viewModel(factory = factory)
@@ -58,7 +60,7 @@ fun AppRoot() { // Raíz de la app para separar responsabilidades
             authViewModel = authViewModel,
             homeViewModel = homeViewModel,
             addPublicationViewModel = addPublicationViewModel,
-            viewModelFactory = factory // ✅ PASAMOS LA FACTORY
+            viewModelFactory = factory // PASAMOS LA FACTORY
         )
 
     }
