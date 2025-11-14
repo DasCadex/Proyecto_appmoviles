@@ -4,6 +4,8 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
 
 //por cada tabla que tengamos tendremos que generar un dao
 @Dao
@@ -23,6 +25,16 @@ interface UserDao{
 
     @Query("SELECT * FROM usuarios  ORDER BY id ASC")
     suspend fun getall(): List<UserEntity>
+
+    //SELE4CCIONAMOS TODOS LOS USUARIO DE LA TABLA Y ORDENANRA LOS NOMBRES DE USUARIO POR ORDEN ALFABETICO
+
+    @Query("SELECT * FROM usuarios ORDER BY nameuser ASC")
+    fun getAllUsers(): Flow<List<UserEntity>>//creamos la lsita y con el flow cada cambio lo actualizara en la bd y guaradara el cambio
+
+
+
+    @Update
+    suspend fun updateUser(user: UserEntity)//actualiza el usuario modificado
 
 
     //obtner la cantidad de registros de la base de datos

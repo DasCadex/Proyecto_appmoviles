@@ -105,7 +105,7 @@ class AuthViewModel(
     }
 
     fun clearLoginResult(){
-        _login.update { it.copy(success =  false, errorMsg = null) }
+        _login.update { it.copy(success =  false, errorMsg = null, loginInput = "", pass = "") }
     }
 
 
@@ -179,7 +179,14 @@ class AuthViewModel(
     }
 
     fun clearRegisterResult() {
-        _register.update { it.copy(success = false, errorMsg = null) }
+        _register.update { it.copy(success = false, errorMsg = null, nameuser = "", confirm = "", pass = "", phone = "", email = "") }
+    }
+    fun logout() {
+
+        _currentUser.value = null
+
+        clearLoginResult()
+        clearRegisterResult()
     }
 
 }

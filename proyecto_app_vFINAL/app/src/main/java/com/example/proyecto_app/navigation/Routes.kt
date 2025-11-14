@@ -17,4 +17,6 @@ sealed class Route(val path: String) {
         // Función helper para construir la ruta con un ID específico
         fun createRoute(publicationId: Long) = "publication_detail/$publicationId"
     }
+    // ruta especial para que el administrador acceda
+    data object AdminPanel : Route("admin_panel")
 }

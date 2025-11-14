@@ -3,6 +3,7 @@ package com.example.proyecto_app.data.repository
 import com.example.proyecto_app.data.Roles.RoleDao
 import com.example.proyecto_app.data.local.user.UserDao
 import com.example.proyecto_app.data.local.user.UserEntity
+import kotlinx.coroutines.flow.Flow
 
 //en esta parte declararemos las reglas del negocio
 //paso 3 logica del negocio  en donde se llama de los entitis y daos
@@ -53,14 +54,12 @@ class UserRepository(
             return Result.failure(IllegalStateException("El nombre de usuario ya está en uso."))
         }
 
-        // ✅ BUSCAMOS EL roleId PARA "usuario"
         val usuarioRoleId = roleDao.getRoleByName("usuario")?.roleId
         if (usuarioRoleId == null) {
             // Error crítico: El rol 'usuario' no existe en la BD.
             return Result.failure(IllegalStateException("Rol 'usuario' no encontrado. La configuración inicial falló."))
         }
 
-        // ✅ CREAMOS EL USUARIO CON EL roleId OBTENIDO
         val newUser = UserEntity(
             nameuser = nameuser,
             email = email,
@@ -70,6 +69,14 @@ class UserRepository(
         )
         val id = UserDao.insert(newUser)
         return Result.success(id)
+    }
+   //llamamos la funcion que traera a todos los  usuarios
+    fun getAllUsers(): Flow<List<UserEntity>> {
+        return UserDao.getAllUsers()
+    }
+
+    suspend fun updateUser(user: UserEntity){
+        UserDao.updateUser(user)
     }
 
 

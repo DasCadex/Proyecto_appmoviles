@@ -38,12 +38,12 @@ fun AppRoot() { // Raíz de la app para separar responsabilidades
 
     val userRepository = UserRepository(db.UserDao(), db.roleDao())
     val publicationRepository = PublicationRepository(db.publicacionDao())
-
+    val roleDao = db.roleDao()
     // CREAMOS EL CommentRepository
     val commentRepository = CommentRepository(db.commentDao())
 
     // PASAMOS CommentRepository A LA FACTORY
-    val factory = AuthViewModelFactory(userRepository, publicationRepository, commentRepository)
+    val factory = AuthViewModelFactory(userRepository, publicationRepository, commentRepository,roleDao)
 
 
 

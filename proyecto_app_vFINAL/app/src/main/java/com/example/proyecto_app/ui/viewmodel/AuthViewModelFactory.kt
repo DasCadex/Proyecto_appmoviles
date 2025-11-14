@@ -3,6 +3,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.example.proyecto_app.data.Roles.RoleDao
 import com.example.proyecto_app.data.repository.CommentRepository
 import com.example.proyecto_app.data.repository.PublicationRepository
 import com.example.proyecto_app.data.repository.UserRepository
@@ -11,7 +12,8 @@ import com.example.proyecto_app.data.repository.UserRepository
 class AuthViewModelFactory(//con esto le entregamos todos repositorios
     private val userRepository: UserRepository,
     private val publicationRepository: PublicationRepository,
-    private val commentRepository: CommentRepository
+    private val commentRepository: CommentRepository,
+    private val roleDao: RoleDao
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -31,6 +33,10 @@ class AuthViewModelFactory(//con esto le entregamos todos repositorios
             }
             modelClass.isAssignableFrom(PublicationDetailViewModel::class.java) -> {
                 PublicationDetailViewModel(publicationRepository, commentRepository, savedStateHandle) as T
+            }
+           //agregamos el admin para que el factori sepa crear el viewmodel del admin viewmodelm
+            modelClass.isAssignableFrom(AdminViewModel::class.java) -> {
+                AdminViewModel(userRepository, roleDao) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
