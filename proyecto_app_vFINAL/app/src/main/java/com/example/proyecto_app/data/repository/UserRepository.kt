@@ -1,85 +1,54 @@
 package com.example.proyecto_app.data.repository
 
-import com.example.proyecto_app.data.Roles.RoleDao
-import com.example.proyecto_app.data.local.user.UserDao
-import com.example.proyecto_app.data.local.user.UserEntity
-import kotlinx.coroutines.flow.Flow
+import com.example.proyecto_app.data.local.remote.PixelHubApi
+import com.example.proyecto_app.data.local.remote.dto.LoginRequestDto
+import com.example.proyecto_app.data.local.remote.dto.LoginResponseDto
+import com.example.proyecto_app.data.local.remote.dto.RolBodyDto
+import com.example.proyecto_app.data.local.remote.dto.UsuarioBodyDto
+import com.example.proyecto_app.data.local.remote.dto.UsuarioDto
 
-//en esta parte declararemos las reglas del negocio
-//paso 3 logica del negocio  en donde se llama de los entitis y daos
-class UserRepository(
-    //inyectamos el dao
-    private val UserDao: UserDao,
-    private val roleDao: RoleDao
 
-){
-    //orquestacion del logion
-    // Orquestación del login que acepta email O nombre de usuario
-    suspend fun login(loginInput: String, pass: String): Result<UserEntity> {
-        val user: UserEntity?
+class UserRepository(private val api: PixelHubApi) {
 
-        // Verifica si busca por email o usuario
-        if ("@" in loginInput) {
-            //  ¿Estás seguro que el email del admin es admin@gmail.com?
-            //    Revisa AppDatabase.kt -> ¡Sí, es correcto!
-            user = UserDao.getByEmail(loginInput)
-        } else {
-            //  ¿Estás seguro que el nameuser del admin es "admin"?
-            //    Revisa AppDatabase.kt -> ¡Sí, es correcto!
-            user = UserDao.getByUser(loginInput)
-        }
+    suspend fun login(user: String, pass: String): Result<LoginResponseDto> {
+        return try {
+            val response = api.login(LoginRequestDto(user, pass))
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Error: ${response.code()}"))
+            }
+        } catch (e: Exception) { Result.failure(e) }
+    }
 
-        // Compara la contraseña EXACTA
-        //  ¿La contraseña en AppDatabase es EXACTAMENTE "Admin123!"?
-        //    Revisa AppDatabase.kt -> ¡Sí, es correcto!
-        return if (user != null && user.pass == pass) { // <-- La comparación es directa
-            Result.success(user)
-        } else {
-            // Si llega aquí, o 'user' es null (no encontrado) o 'user.pass' no es igual a 'pass'
-            Result.failure(IllegalArgumentException("Credenciales inválidas"))
+    suspend fun register(name: String, email: String, phone: String, pass: String): Result<Boolean> {
+        return try {
+            val body = UsuarioBodyDto(name, pass, phone, email, "ACTIVO", RolBodyDto(2))
+            val response = api.registro(body)
+            if (response.isSuccessful) Result.success(true) else Result.failure(Exception("Error"))
+        } catch (e: Exception) { Result.failure(e) }
+    }
+    // Obtener todos
+    suspend fun getAllUsers(): List<UsuarioDto> {
+        return try {
+            // Llamamos a la API sin parámetros
+            api.listarUsuarios()
+        } catch (e: Exception) {
+            // Si falla, devolvemos lista vacía para no romper la app
+            emptyList()
         }
     }
 
-    //orquestacion delregister
 
-    suspend fun register(nameuser:String, email:String, phone:String, pass:String): Result<Long>{
-
-        val existeEmail = UserDao.getByEmail(email)!= null
-        if (existeEmail) {
-            return Result.failure(IllegalStateException("El correo electrónico ya está registrado."))
+    // Actualizar
+    suspend fun updateUser(id: Long, usuario: UsuarioBodyDto): Boolean {
+        return try {
+            // Llamamos a la API pasando los dos parámetros en orden
+            val response = api.actualizarUsuario(id, usuario)
+            response.isSuccessful
+        } catch (e: Exception) {
+            false
         }
-
-        val existeUser = UserDao.getByUser(nameuser)!= null
-        if (existeUser) {
-            return Result.failure(IllegalStateException("El nombre de usuario ya está en uso."))
-        }
-
-        val usuarioRoleId = roleDao.getRoleByName("usuario")?.roleId
-        if (usuarioRoleId == null) {
-            // Error crítico: El rol 'usuario' no existe en la BD.
-            return Result.failure(IllegalStateException("Rol 'usuario' no encontrado. La configuración inicial falló."))
-        }
-
-        val newUser = UserEntity(
-            nameuser = nameuser,
-            email = email,
-            phone = phone,
-            pass = pass,
-            roleId = usuarioRoleId // Asignamos el ID encontrado
-        )
-        val id = UserDao.insert(newUser)
-        return Result.success(id)
     }
-   //llamamos la funcion que traera a todos los  usuarios
-    fun getAllUsers(): Flow<List<UserEntity>> {
-        return UserDao.getAllUsers()
-    }
-
-    suspend fun updateUser(user: UserEntity){
-        UserDao.updateUser(user)
-    }
-
-
-
 
 }

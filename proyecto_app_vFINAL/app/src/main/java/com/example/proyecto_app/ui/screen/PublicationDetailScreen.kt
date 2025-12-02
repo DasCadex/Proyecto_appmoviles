@@ -1,13 +1,8 @@
 package com.example.proyecto_app.ui.screen
 
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.OutlinedTextField
-
-
-import androidx.compose.material.icons.filled.Share // Para el icono
-import androidx.compose.ui.platform.LocalContext // Para obtener el contexto
-import android.content.Intent // Para crear la acción de compartir
-import android.util.Log // Para depuración (opcional pero útil)
+import android.content.Intent
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +14,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -31,12 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.proyecto_app.data.local.comentarios.CommentEntity
+import com.example.proyecto_app.data.local.remote.dto.ComentarioDto
+import com.example.proyecto_app.data.local.remote.dto.LoginResponseDto
 
-import com.example.proyecto_app.data.local.user.UserEntity
 import com.example.proyecto_app.ui.viewmodel.AuthViewModelFactory
 import com.example.proyecto_app.ui.viewmodel.PublicationDetailViewModel
-
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -44,21 +39,62 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PublicationDetailScreen(
-    viewModelFactory: AuthViewModelFactory, // Recibimos la factory
-    currentUser: UserEntity?,
+    viewModelFactory: AuthViewModelFactory,
+    currentUser: LoginResponseDto?, // ✅ Usamos el DTO de usuario
     onNavigateBack: () -> Unit
-
 ) {
-    // Creamos el ViewModel usando la factory
     val viewModel: PublicationDetailViewModel = viewModel(factory = viewModelFactory)
     val detailState by viewModel.detailState.collectAsState()
-    val uiState = viewModel.uiState // Estado local para el campo de texto del nuevo comentario
-
-    val publicationWithAuthor = detailState.publicationWithAuthor
+    // ✅ Usamos el estado local del ViewModel para los campos de texto/diálogos
+    // (Si no puedes acceder a uiState, asegúrate de que sea público en el ViewModel,
+    //  o usa detailState si moviste todo ahí como hicimos antes)
+    //  Asumiremos que detailState tiene todo lo necesario:
 
     val context = LocalContext.current
 
-    val adminRoleId = 1L
+    // 1. Accedemos a la publicación desde el estado (ahora es 'publication', no 'publicationWithAuthor')
+    val publication = detailState.publication
+
+    LaunchedEffect(detailState.deleted) {
+        if (detailState.deleted) {
+            Toast.makeText(context, "Publicación eliminada", Toast.LENGTH_SHORT).show()
+            viewModel.resetDeletedFlag()
+            onNavigateBack()
+        }
+    }
+
+    // DIÁLOGO DE CONFIRMACIÓN DE BORRADO
+    if (detailState.showDeleteConfirmDialog && currentUser != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onDismissDeleteDialog() },
+            title = { Text("Confirmar Borrado") },
+            text = {
+                Column {
+                    Text("Vas a borrar esta publicación. Escribe el motivo:")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = detailState.deleteReason,
+                        onValueChange = { viewModel.onReasonChange(it) },
+                        label = { Text("Motivo") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.deletePublicationWithReason(currentUser) },
+                    enabled = detailState.deleteReason.isNotBlank()
+                ) {
+                    Text("Confirmar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onDismissDeleteDialog() }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -66,95 +102,84 @@ fun PublicationDetailScreen(
                 title = { Text("Publicación", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, "Volver", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1A1233)),
                 actions = {
-
-                    if (currentUser?.roleId == adminRoleId) {
-                        IconButton(onClick = { viewModel.deletePublication() }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Borrar Publicación",
-                                tint = Color.Red
-                            )
+                    // ✅ Validar Admin usando el DTO (rolId)
+                    if (currentUser?.rolId == 1L) {
+                        IconButton(onClick = { viewModel.onShowDeleteDialog() }) {
+                            Icon(Icons.Default.Delete, "Borrar", tint = Color.Red)
                         }
                     }
 
-                    if (publicationWithAuthor != null) {
+                    // Botón Compartir
+                    if (publication != null) {
                         IconButton(onClick = {
-
                             try {
-                                Log.d("ShareButton", "Botón Compartir presionado") // Log para depurar
-
-                                // 1. Crear el Intent de tipo ACTION_SEND
-                                val sendIntent: Intent = Intent().apply {
-                                    action = Intent.ACTION_SEND // La acción es "enviar"
-                                    // 2. Poner los datos a compartir
-                                    putExtra(Intent.EXTRA_SUBJECT, "Mira esta publicación: ${publicationWithAuthor.publication.title}")
-                                    putExtra(Intent.EXTRA_TEXT, "Echa un vistazo a '${publicationWithAuthor.publication.title}' por ${publicationWithAuthor.author.nameuser} en PixelHub!")
-                                    // 3. Especificar el tipo de dato
-                                    type = "text/plain" // Es texto simple
+                                val sendIntent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    // ✅ CORRECCIÓN: Accedemos directo a las propiedades del DTO
+                                    putExtra(Intent.EXTRA_SUBJECT, "Mira: ${publication.title}")
+                                    putExtra(Intent.EXTRA_TEXT,
+                                        "Echa un vistazo a '${publication.title}' por ${publication.authorName} en PixelHub!"
+                                    )
+                                    type = "text/plain"
                                 }
-
-                                // 4. Crear el Chooser (el diálogo que muestra las apps)
-                                val shareIntent = Intent.createChooser(sendIntent, "Compartir publicación vía...")
-
-                                // 5. Iniciar la actividad (mostrar el diálogo)
+                                val shareIntent = Intent.createChooser(sendIntent, "Compartir vía...")
                                 context.startActivity(shareIntent)
-                                Log.d("ShareButton", "Chooser iniciado correctamente")
-
                             } catch (e: Exception) {
-                                // Si algo falla, lo veremos en Logcat
-                                Log.e("ShareButton", "Error al intentar compartir", e)
-                                // Aquí podrías mostrar un mensaje al usuario (Toast, Snackbar) si quieres
+                                Log.e("Share", "Error", e)
                             }
-
                         }) {
-                            Icon(
-                                Icons.Default.Share,
-                                contentDescription = "Compartir Publicación",
-                                tint = Color.White
-                            )
+                            Icon(Icons.Default.Share, "Compartir", tint = Color.White)
                         }
                     }
-
-                },
+                }
             )
         },
-        containerColor = Color(0xFF3A006A) // Fondo morado oscuro
+        containerColor = Color(0xFF3A006A)
     ) { paddingValues ->
         if (detailState.isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-        } else if (publicationWithAuthor == null) {
+        } else if (publication == null) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Text("Publicación no encontrada.", color = Color.White)
+                Text("No encontrada", color = Color.White)
             }
         } else {
-            val publication = publicationWithAuthor.publication
-            val author = publicationWithAuthor.author
-
+            // ✅ Renderizado de la Publicación (DTO)
             Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)) {
 
-                //  SECCIÓN DE COMENTARIOS CON CONTADOR REAL
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Comentarios", style = MaterialTheme.typography.titleMedium, color = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    // Usamos el tamaño de la lista de comentarios del estado
-                    Text("(${detailState.comments.size})", style = MaterialTheme.typography.titleMedium, color = Color.Gray)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                // Contenido de la Publicación (similar a PublicationCard pero sin Card)
-                Text(publication.title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
-                Text("por ${author.nameuser}", style = MaterialTheme.typography.bodySmall, color = Color.LightGray)
+                // Título
+                Text(
+                    text = publication.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White
+                )
+
+                // Autor (Directo del DTO)
+                Text(
+                    text = "por ${publication.authorName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.LightGray
+                )
+
+                // Descripción
                 if (!publication.description.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(publication.description, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                    Text(
+                        text = publication.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
                 }
+
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // Imagen
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(publication.imageUri)
@@ -167,61 +192,54 @@ fun PublicationDetailScreen(
                         .aspectRatio(16f / 9f)
                         .clip(RoundedCornerShape(12.dp))
                 )
+
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Sección de Comentarios
-                Text("Comentarios", style = MaterialTheme.typography.titleMedium, color = Color.White)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyColumn(modifier = Modifier.weight(1f)) { // Ocupa el espacio restante
-                    items(detailState.comments) { comment ->
-                        CommentItem(comment)
-                    }
-                    if (detailState.comments.isEmpty()) {
-                        item {
-                            Text("No hay comentarios aún.", color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
-                        }
-                    }
+                // Sección Comentarios
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Comentarios", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("(${detailState.comments.size})", style = MaterialTheme.typography.titleMedium, color = Color.Gray)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Campo para añadir comentario (solo si hay usuario logueado)
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(detailState.comments) { comment ->
+                        CommentItem(comment)
+                    }
+                    if (detailState.comments.isEmpty()) {
+                        item { Text("Sin comentarios.", color = Color.Gray) }
+                    }
+                }
+
+                // Campo Añadir Comentario
                 currentUser?.let { user ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedTextField(
-                            value = uiState.newCommentText,
+                            value = detailState.newCommentText,
                             onValueChange = { viewModel.onNewCommentChange(it) },
-                            placeholder = { Text("Escribe un comentario...") },
+                            placeholder = { Text("Comentar...") },
                             modifier = Modifier.weight(1f),
-
-                            // Usamos el parámetro 'colors' del OutlinedTextField directamente
                             colors = OutlinedTextFieldDefaults.colors(
-                                // Colores para el texto y cursor
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
                                 cursorColor = Color.White,
-                                // Colores para el borde (Indicator)
-                                focusedBorderColor = Color(0xFF00BFFF), // Cyan cuando enfocado
-                                unfocusedBorderColor = Color.Gray,     // Gris cuando no
-                                // Color de fondo (opcional, si quieres que no sea transparente)
-                                focusedContainerColor = Color(0xFF1A1233), // Fondo oscuro
-                                unfocusedContainerColor = Color(0xFF1A1233), // Fondo oscuro
-                                // Color del placeholder
-                                unfocusedPlaceholderColor = Color.Gray,
-                                focusedPlaceholderColor = Color.Gray
+                                focusedBorderColor = Color(0xFF00BFFF),
+                                unfocusedBorderColor = Color.Gray,
+                                focusedContainerColor = Color(0xFF1A1233),
+                                unfocusedContainerColor = Color(0xFF1A1233)
                             ),
                             shape = RoundedCornerShape(24.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
                         IconButton(
                             onClick = { viewModel.addComment(user) },
-                            enabled = uiState.newCommentText.isNotBlank()
+                            enabled = detailState.newCommentText.isNotBlank()
                         ) {
-                            Icon(Icons.Default.Send, contentDescription = "Enviar comentario", tint = Color(0xFF00BFFF))
+                            Icon(Icons.Default.Send, "Enviar", tint = Color(0xFF00BFFF))
                         }
                     }
                 }
@@ -230,11 +248,12 @@ fun PublicationDetailScreen(
     }
 }
 
-
-// Composable simple para mostrar cada comentario
+// Composable para items de comentario (DTO)
 @Composable
-fun CommentItem(comment: CommentEntity) {
-    val dateFormatter = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
+fun CommentItem(comment: ComentarioDto) {
+    // Convertir fecha si es necesario, o mostrar tal cual si el DTO ya trae el formato
+    // val date = comment.createdAt ?: "Ahora"
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1233)),
@@ -244,17 +263,13 @@ fun CommentItem(comment: CommentEntity) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(comment.authorName, style = MaterialTheme.typography.titleSmall, color = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    dateFormatter.format(Date(comment.createdAt)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.Gray
-                )
+                // Fecha (si la tienes en el DTO)
+                if (comment.createdAt != null) {
+                    Text(comment.createdAt, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                }
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(comment.text, style = MaterialTheme.typography.bodyMedium, color = Color.LightGray)
         }
     }
 }
-
-
-

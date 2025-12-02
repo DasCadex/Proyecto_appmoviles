@@ -19,4 +19,6 @@ sealed class Route(val path: String) {
     }
     // ruta especial para que el administrador acceda
     data object AdminPanel : Route("admin_panel")
+
+    data object Notifications : Route("notifications")
 }

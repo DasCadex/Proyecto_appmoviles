@@ -2,61 +2,59 @@ package com.example.proyecto_app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto_app.data.Roles.RoleDao
+import com.example.proyecto_app.data.local.remote.dto.RolBodyDto
+import com.example.proyecto_app.data.local.remote.dto.UsuarioBodyDto
+import com.example.proyecto_app.data.local.remote.dto.UsuarioDto
 
-import com.example.proyecto_app.data.local.user.UserEntity
 import com.example.proyecto_app.data.repository.UserRepository
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AdminViewModel(
-    private val userRepository: UserRepository,
-    private val roleDao: RoleDao // Necesitamos RoleDao para obtener los IDs de los roles
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
-    // IDs de roles (los obtenemos al iniciar)
-    private var adminRoleId: Long = -1L
-    private var usuarioRoleId: Long = -1L
+    private val ADMIN_ROLE_ID = 1L
+    private val USER_ROLE_ID = 2L
+
+    private val _users = MutableStateFlow<List<UsuarioDto>>(emptyList())
+    val users: StateFlow<List<UsuarioDto>> = _users.asStateFlow()
 
     init {
+        loadUsers()
+    }
+
+    fun loadUsers() {
         viewModelScope.launch {
-            // Carga los IDs de los roles una vez
-            adminRoleId = roleDao.getRoleByName("admin")?.roleId ?: 1L
-            usuarioRoleId = roleDao.getRoleByName("usuario")?.roleId ?: 2L
+            val listaUsuarios = userRepository.getAllUsers()
+            _users.value = listaUsuarios
         }
     }
 
-    // Expone la lista de todos los usuarios
-    val users: StateFlow<List<UserEntity>> = userRepository.getAllUsers()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = emptyList()
-        )
-
-    /**
-     * Cambia el rol de un usuario.
-     * @param user El usuario a modificar.
-     * @param isAdmin True si debe ser admin, False si debe ser usuario.
-     */
-    fun changeUserRole(user: UserEntity, isAdmin: Boolean) {
+    fun changeUserRole(user: UsuarioDto, isAdmin: Boolean) {
         viewModelScope.launch {
-            val newRoleId = if (isAdmin) adminRoleId else usuarioRoleId
-            // No cambiamos el rol si ya lo tiene (o si los IDs no se han cargado)
-            if (newRoleId == -1L || user.roleId == newRoleId) return@launch
+            val newRoleId = if (isAdmin) ADMIN_ROLE_ID else USER_ROLE_ID
+            if (user.rolId == newRoleId) return@launch
 
-            // Actualiza al usuario en la base de datos
-            userRepository.updateUser(user.copy(roleId = newRoleId))
+            val usuarioActualizado = UsuarioBodyDto(
+                nombreUsuario = user.nombreUsuario,
+                contrasena = "",
+                numeroTelefono = user.numeroTelefono,
+                correo = user.correo,
+                estado = user.estado,
+                rol = RolBodyDto(newRoleId)
+            )
+
+            val success = userRepository.updateUser(user.usuarioId, usuarioActualizado)
+            if (success) {
+                loadUsers()
+            }
         }
     }
 
-    /**
-     * Comprueba si un usuario es administrador.
-     * Se usa en la UI para el estado del Switch.
-     */
-    fun isUserAdmin(user: UserEntity): Boolean {
-        return user.roleId == adminRoleId
+    fun isUserAdmin(user: UsuarioDto): Boolean {
+        return user.rolId == ADMIN_ROLE_ID
     }
 }

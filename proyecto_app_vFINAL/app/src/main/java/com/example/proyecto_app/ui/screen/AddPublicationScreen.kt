@@ -1,6 +1,9 @@
 package com.example.proyecto_app.ui.screen
 
+
+
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -10,12 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,52 +22,51 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
-import com.example.proyecto_app.data.local.user.UserEntity
+import com.example.proyecto_app.data.local.remote.dto.LoginResponseDto
+
 import com.example.proyecto_app.ui.viewmodel.AddPublicationViewModel
 
-
-@OptIn(ExperimentalMaterial3Api::class) // Necesario para ExposedDropdownMenuBox
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddPublicationScreen(
     addPublicationViewModel: AddPublicationViewModel,
     onPublicationSaved: () -> Unit,
-    currentUser: UserEntity?// asi indicamo el usuario que esta publicando algo  para saber el autor
+    // ✅ CORRECCIÓN: El tipo debe ser LoginResponseDto?
+    currentUser: LoginResponseDto?
 ) {
-    val uiState = addPublicationViewModel.uiState//con esto llamamos al añadir publicancion y cada vez que se modifique lo actualiza  y reescribira la nueva pantalla cn la infro que le demos
-
+    val uiState = addPublicationViewModel.uiState
     val context = LocalContext.current
-    // Obtenemos la lista de categorías del ViewModel
     val categories = addPublicationViewModel.categories
-
-    // Estado local para controlar si el menú desplegable está expandido
-    var categoryMenuExpanded by remember { mutableStateOf(false) }
-
+    var expanded by remember { mutableStateOf(false) }
 
     val customTextFieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = Color.White,
         unfocusedTextColor = Color.White,
         cursorColor = Color.White,
-        focusedBorderColor = Color(0xFF00BFFF), // Cyan
+        focusedBorderColor = Color(0xFF00BFFF),
         unfocusedBorderColor = Color.LightGray,
         focusedLabelColor = Color.LightGray,
         unfocusedLabelColor = Color.LightGray,
-        focusedContainerColor = Color.Transparent, // Fondo transparente
+        focusedContainerColor = Color.Transparent,
         unfocusedContainerColor = Color.Transparent
     )
 
-    //esta varible sirve para anbrir la galeria
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let {
-            addPublicationViewModel.onImageSelected(it)
-        }
+        uri?.let { addPublicationViewModel.onImageSelected(it) }
     }
 
     LaunchedEffect(uiState.saveSuccess) {
-        if (uiState.saveSuccess) {// con esto le decimos qur guarde en la baser de datos
-            addPublicationViewModel.clearSuccessFlag()//luego de guardar la info limpiara los campos
+        if (uiState.saveSuccess) {
+            addPublicationViewModel.clearSuccessFlag()
             onPublicationSaved()
+        }
+    }
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { error ->
+            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            // Opcional: Limpiar el error en el ViewModel después de mostrarlo si tienes una función para ello
         }
     }
 
@@ -85,13 +82,11 @@ fun AddPublicationScreen(
 
         OutlinedTextField(
             value = uiState.title,
-
             onValueChange = { addPublicationViewModel.onTitleChange(it) },
             label = { Text("Título") },
             modifier = Modifier.fillMaxWidth(),
-            colors = customTextFieldColors
-
-
+            colors = customTextFieldColors,
+            singleLine = true
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -101,29 +96,25 @@ fun AddPublicationScreen(
             label = { Text("Descripción (informativo)") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp), // Damos más altura para escribir
-            maxLines = 5, // Permitimos varias líneas
+                .height(150.dp),
+            maxLines = 5,
             colors = customTextFieldColors
         )
+        Spacer(modifier = Modifier.height(16.dp))
 
+        // Dropdown de Categoría
         ExposedDropdownMenuBox(
-            expanded = categoryMenuExpanded,
-            onExpandedChange = { categoryMenuExpanded = !categoryMenuExpanded },
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
             modifier = Modifier.fillMaxWidth()
         ) {
-            // TextField que muestra la categoría seleccionada y abre el menú
             OutlinedTextField(
-                value = uiState.selectedCategory, // Muestra la categoría del ViewModel
-                onValueChange = {}, // No editable directamente
+                value = uiState.selectedCategory,
+                onValueChange = {},
                 readOnly = true,
                 label = { Text("Categoría") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryMenuExpanded)
-                },
-                modifier = Modifier
-                    .menuAnchor() // Importante para conectar con el menú
-                    .fillMaxWidth(),
-                // Colores específicos para el Dropdown (un poco diferentes)
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth(),
                 colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
@@ -136,18 +127,16 @@ fun AddPublicationScreen(
 
                 )
             )
-
-            // Contenido del menú desplegable
             ExposedDropdownMenu(
-                expanded = categoryMenuExpanded,
-                onDismissRequest = { categoryMenuExpanded = false } // Se cierra si tocas fuera
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
             ) {
                 categories.forEach { category ->
                     DropdownMenuItem(
                         text = { Text(category) },
                         onClick = {
-                            addPublicationViewModel.onCategoryChange(category) // Llama al ViewModel
-                            categoryMenuExpanded = false // Cierra el menú
+                            addPublicationViewModel.onCategoryChange(category)
+                            expanded = false
                         }
                     )
                 }
@@ -166,7 +155,7 @@ fun AddPublicationScreen(
                 .clickable { imagePickerLauncher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
-            if (uiState.imageUri != null) {//con esto mostrara la imagen si la seleccionamos
+            if (uiState.imageUri != null) {
                 Image(
                     painter = rememberAsyncImagePainter(uiState.imageUri),
                     contentDescription = "Imagen seleccionada",
@@ -181,12 +170,10 @@ fun AddPublicationScreen(
 
         Button(
             onClick = {
-
-                currentUser?.let { user ->//con esto llamamos al usuario que subio la publicacion para obtener su nombre
+                currentUser?.let { user ->
                     addPublicationViewModel.savePublication(context, user)
                 }
             },
-            // La habilitación del botón también debe verificar que currentUser no sea null
             enabled = !uiState.isSaving && uiState.title.isNotBlank() && uiState.description.isNotBlank() && uiState.imageUri != null && currentUser != null,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -198,6 +185,3 @@ fun AddPublicationScreen(
         }
     }
 }
-
-
-

@@ -1,39 +1,62 @@
 package com.example.proyecto_app.data.repository
 
 
-import com.example.proyecto_app.data.local.publicacion.PublicacionDao
-import com.example.proyecto_app.data.local.publicacion.PublicacionEntity
-import com.example.proyecto_app.ui.viewmodel.PublicationWithAuthor
+import com.example.proyecto_app.data.local.remote.PixelHubApi
+import com.example.proyecto_app.data.local.remote.dto.PublicacionDto
+
 import kotlinx.coroutines.flow.Flow
-//paso 3 logica del negocio  en donde se llama de los entitis y daos
+import kotlinx.coroutines.flow.flow
 
-class PublicationRepository(private val publicacionDao: PublicacionDao) {//en esta parte no creamos el dao simplemente lo llamamos para usarlo
+class PublicationRepository(private val api: PixelHubApi) {
 
-//en esta parte simplemente llamos las funciones que se crearon anteirormente en el dao de publicaciones
-    fun getAllPublicationsWithAuthors(): Flow<List<PublicationWithAuthor>> {
-        return publicacionDao.getPublicationsWithAuthors()
-        //aqui simplemente llamamos el dao y el metodo getPublicationsWithAuthors para que ejecute el codigo del dao
+    // Devuelve un Flow para compatibilidad con tu ViewModel existente
+    fun getAllPublications(): Flow<List<PublicacionDto>> = flow {
+        try {
+            emit(api.getPublicaciones())
+        } catch (e: Exception) {
+            emit(emptyList())
+        }
     }
 
-    fun getPublicationsWithAuthorsByCategory(category: String): Flow<List<PublicationWithAuthor>> {
-        return publicacionDao.getPublicationsWithAuthorsByCategory(category)
+    // Para filtrar localmente
+    fun getPublicationsByCategory(category: String): Flow<List<PublicacionDto>> = flow {
+        try {
+            val all = api.getPublicaciones()
+            emit(all.filter { it.category == category })
+        } catch (e: Exception) { emit(emptyList()) }
     }
 
-    suspend fun createPublication(publication: PublicacionEntity) {
-        publicacionDao.insert(publication)
-        //llama al dao y aplica el inserte que esta en el dao
-    }
-    fun getPublicationByIdFlow(publicationId: Long): Flow<PublicationWithAuthor?> {
-        return publicacionDao.getPublicationByIdWithAuthorFlow(publicationId)
-    }
-
-
-    suspend fun incrementLikes(publicationId: Long) {
-        publicacionDao.incrementLikes(publicationId)
+    fun getPublicationById(id: Long): Flow<PublicacionDto?> = flow {
+        try {
+            val all = api.getPublicaciones()
+            emit(all.find { it.id == id })
+        } catch (e: Exception) { emit(null) }
     }
 
-    suspend fun deletePublication(publicationId: Long) {
-        publicacionDao.deleteById(publicationId)
+    suspend fun createPublication(pub: PublicacionDto): Result<Boolean> {
+        return try {
+            val response = api.crearPublicacion(pub) // Ahora devuelve Response
+
+            if (response.isSuccessful) {
+                Result.success(true)
+            } else {
+
+                // Esto te dirá si es "Usuario no existe" o "Error de conexión interna"
+                val errorMsg = response.errorBody()?.string() ?: "Error ${response.code()}"
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.failure(e)
+        }
     }
 
+    suspend fun deletePublication(id: Long) {
+        // Simplemente llamamos a la API para borrar la publicación Si falla el ViewModel lo sabrá.
+        api.eliminarPublicacion(id)
+    }
+
+    suspend fun incrementLikes(id: Long) {
+        try { api.darLike(id) } catch (e: Exception) { e.printStackTrace() }
+    }
 }

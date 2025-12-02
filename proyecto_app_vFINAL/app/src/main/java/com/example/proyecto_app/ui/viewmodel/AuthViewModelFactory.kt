@@ -3,43 +3,41 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.CreationExtras
-import com.example.proyecto_app.data.Roles.RoleDao
 import com.example.proyecto_app.data.repository.CommentRepository
+import com.example.proyecto_app.data.repository.NotificationRepository
 import com.example.proyecto_app.data.repository.PublicationRepository
 import com.example.proyecto_app.data.repository.UserRepository
 
-
-class AuthViewModelFactory(//con esto le entregamos todos repositorios
+class AuthViewModelFactory(
     private val userRepository: UserRepository,
     private val publicationRepository: PublicationRepository,
     private val commentRepository: CommentRepository,
-    private val roleDao: RoleDao
+    private val notificationRepository: NotificationRepository
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {//con esto hacemos que cuando inice la app puede creas un viewmodel
-        val savedStateHandle = extras.createSavedStateHandle() // Obtenemos SavedStateHandle
+    override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
+        val savedStateHandle = extras.createSavedStateHandle()
         return when {
-
             modelClass.isAssignableFrom(AuthViewModel::class.java) -> {
-                AuthViewModel(userRepository) as T//creamos el  AuthViewModel cuando necesite al userRepository
+                AuthViewModel(userRepository) as T
             }
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> {
                 HomeViewModel(publicationRepository) as T
             }
-
             modelClass.isAssignableFrom(AddPublicationViewModel::class.java) -> {
                 AddPublicationViewModel(publicationRepository) as T
             }
             modelClass.isAssignableFrom(PublicationDetailViewModel::class.java) -> {
-                PublicationDetailViewModel(publicationRepository, commentRepository, savedStateHandle) as T
+                PublicationDetailViewModel(publicationRepository, commentRepository, notificationRepository, savedStateHandle) as T
             }
-           //agregamos el admin para que el factori sepa crear el viewmodel del admin viewmodelm
             modelClass.isAssignableFrom(AdminViewModel::class.java) -> {
-                AdminViewModel(userRepository, roleDao) as T
+                AdminViewModel(userRepository) as T
+            }
+            modelClass.isAssignableFrom(NotificationViewModel::class.java) -> {
+                NotificationViewModel(notificationRepository) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
 }
-

@@ -14,7 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.example.proyecto_app.data.local.user.UserEntity
+import com.example.proyecto_app.data.local.remote.dto.UsuarioDto
+
 import com.example.proyecto_app.ui.viewmodel.AdminViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -23,6 +24,7 @@ fun AdminScreen(
     viewModel: AdminViewModel,
     onNavigateBack: () -> Unit
 ) {
+    // users es una lista de UsuarioDto
     val users by viewModel.users.collectAsState()
 
     Scaffold(
@@ -55,7 +57,7 @@ fun AdminScreen(
             }
             items(users) { user ->
                 UserRoleCard(
-                    user = user,
+                    user = user, // Ahora pasamos un UsuarioDto
                     isAdmin = viewModel.isUserAdmin(user),
                     onRoleChange = { isAdmin ->
                         viewModel.changeUserRole(user, isAdmin)
@@ -68,7 +70,7 @@ fun AdminScreen(
 
 @Composable
 private fun UserRoleCard(
-    user: UserEntity,
+    user: UsuarioDto, // ✅ CORRECCIÓN: Recibe UsuarioDto
     isAdmin: Boolean,
     onRoleChange: (Boolean) -> Unit
 ) {
@@ -85,16 +87,17 @@ private fun UserRoleCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(user.nameuser, style = MaterialTheme.typography.titleMedium, color = Color.White)
-                Text(user.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                // ✅ CORRECCIÓN: Usamos los nombres de campos del DTO
+                Text(user.nombreUsuario, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text(user.correo, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Admin", style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
                 Switch(
                     checked = isAdmin,
                     onCheckedChange = onRoleChange,
-                    // No permitimos que el admin se quite el rol a sí mismo (seguridad)
-                    enabled = user.nameuser != "admin",
+                    // Evitar que el admin se quite permisos a sí mismo (asumiendo que 'admin' es el nombre del superusuario)
+                    enabled = user.nombreUsuario != "admin",
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color(0xFF00BFFF),
                         checkedTrackColor = Color(0xFF00BFFF).copy(alpha = 0.5f),

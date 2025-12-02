@@ -1,97 +1,115 @@
 package com.example.proyecto_app.ui.viewmodel
 
-import  android.content.Context
+import android.content.Context
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.proyecto_app.data.local.publicacion.PublicacionEntity
-import com.example.proyecto_app.data.local.user.UserEntity
-import com.example.proyecto_app.data.repository.PublicationRepository
+import com.example.proyecto_app.data.local.remote.dto.LoginResponseDto
+import com.example.proyecto_app.data.local.remote.dto.PublicacionDto
 
-import kotlinx.coroutines.Dispatchers
+import com.example.proyecto_app.data.repository.PublicationRepository
 import kotlinx.coroutines.launch
+// Imports para manejo de archivos (igual que antes)
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-//paso numero 5 los viewmodel son los cerebros de cada pantalla y pide los dato y acciones al repositorio
-data class AddPublicationUiState(//con esta es la informacion que se usara para generar la UI
+data class AddPublicationUiState(
     val title: String = "",
     val description: String = "",
-    val imageUri: Uri? = null, // Guardamos la URI de la imagen seleccionada
+    val imageUri: Uri? = null,
     val selectedCategory: String = "Shooter",
     val isSaving: Boolean = false,
-    val saveSuccess: Boolean = false
+    val saveSuccess: Boolean = false,
+    val errorMessage: String? = null
 )
 
 class AddPublicationViewModel(
     private val repository: PublicationRepository//llamamos al repositorio
 ) : ViewModel() {
 
-    //variable del esatdo principal y guarda el esatado actual de la pantalla ( lo que esta en los campos )
+    //en esta parte se maneja el estado de la pantalla
     var uiState by mutableStateOf(AddPublicationUiState())
         private set
 
+    //se definine las categorias de las publicaciones
     val categories = listOf("Shooter", "RPG", "Indie", "Noticias", "Retro")
-    fun onTitleChange(title: String) {
-        uiState = uiState.copy(title = title)
-    }
-    //se llama cuando se abre la galeria
-    fun onImageSelected(uri: Uri) {
-        uiState = uiState.copy(imageUri = uri)
-    }
-        //funcion para la descripccion de la publicacion
-    fun onDescriptionChange(description: String) {
-        uiState = uiState.copy(description = description)
-    }
-    //se llama cuando el usuario abre el panel de categorias
-    fun onCategoryChange(category: String) {
-        uiState = uiState.copy(selectedCategory = category)
-    }
+    //se define la funcion para cambiar el titulo de la publicacion
+    fun onTitleChange(title: String) { uiState = uiState.copy(title = title) }
+    //se define la funcion para cambiar la descripcion de la publicacion
+    fun onDescriptionChange(desc: String) { uiState = uiState.copy(description = desc) }
+    //se define la funcion para cambiar la categoria de la publicacion
+    fun onCategoryChange(cat: String) { uiState = uiState.copy(selectedCategory = cat) }
+    fun onImageSelected(uri: Uri) { uiState = uiState.copy(imageUri = uri) }
 
-    // Función principal para guardar la publicación dentro de la base de datos y el repositorio
-    fun savePublication(context: Context, author: UserEntity) {
-        if (uiState.isSaving || uiState.title.isBlank() || uiState.description.isBlank() || uiState.imageUri == null) return
+    //se define la funcion para guardar la publicacion
+    fun savePublication(context: Context, author: LoginResponseDto) {
+        if (uiState.isSaving || uiState.title.isBlank() || uiState.imageUri == null) return//si esta guardando o el titulo esta vacio o la imagen es nula no se puede guardar
 
-        viewModelScope.launch {//con esto iniciamos una corrutina para hacer el trabajo oesadi de guardar en la base de datos
-            uiState = uiState.copy(isSaving = true)
+        viewModelScope.launch {
+            uiState = uiState.copy(isSaving = true, errorMessage = null) // Limpiamos errores previos
 
-            // Guardamos la imagen en el almacenamiento interno y obtenemos su nueva ruta
-            val newImageUri = saveImageToInternalStorage(context, uiState.imageUri!!)
+            try {
+                val newImageUri = saveImageToInternalStorage(context, uiState.imageUri!!)//guardamos la imagen en el dispositivo
 
-            val newPublication = PublicacionEntity(
-                userId = author.id, // Usamos el ID del autor
-                authorName = author.nameuser, // Usamos el nombre del autor
-                title = uiState.title,
-                description = uiState.description.trim(),
-                category = uiState.selectedCategory,
-                imageUri = newImageUri.toString(), // Guardamos la RUTA como String
-                likes = 0
-            )
 
-            repository.createPublication(newPublication)
+                if (newImageUri != null) {//si la imagen se guardo correctamente
+                    // Formateamos la fecha para que la API la acepte de forma automatica y la guarde en la bd
+                    val currentDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
 
-            uiState = uiState.copy(isSaving = false, saveSuccess = true)
+                    val newPublication = PublicacionDto(//creamos la publicacion llamamndo al DTO de la api
+                        id = 0,
+                        userId = author.usuarioId,
+                        authorName = author.nombreUsuario,
+                        title = uiState.title,
+                        description = uiState.description,
+                        category = uiState.selectedCategory,
+                        imageUri = newImageUri.toString(),
+                        likes = 0,
+                        status = "activo",
+                        createDt = currentDate
+                    )
+
+                    //Recibimos el resultado
+                    val result = repository.createPublication(newPublication)
+
+                    if (result.isSuccess) {
+                        uiState = uiState.copy(isSaving = false, saveSuccess = true)
+                    } else {
+                        // Si falló, extraemos el mensaje y lo mostramos
+                        val error = result.exceptionOrNull()?.message ?: "Error desconocido al publicar"
+                        uiState = uiState.copy(isSaving = false, errorMessage = error)
+                    }
+                } else {
+                    uiState = uiState.copy(isSaving = false, errorMessage = "Error al procesar la imagen")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                uiState = uiState.copy(isSaving = false, errorMessage = e.localizedMessage)
+            }
         }
     }
 
-    // Función para copiar la imagen a un lugar seguro dentro de nuestra app
+
     private suspend fun saveImageToInternalStorage(context: Context, uri: Uri): Uri? {
         return withContext(Dispatchers.IO) {
             try {
                 val inputStream = context.contentResolver.openInputStream(uri)
-                // Creamos un nombre de archivo único
                 val fileName = "IMG_${UUID.randomUUID()}.jpg"
                 val file = File(context.filesDir, fileName)
                 val outputStream = FileOutputStream(file)
                 inputStream?.copyTo(outputStream)
                 inputStream?.close()
                 outputStream.close()
-                Uri.fromFile(file) // Devolvemos la URI del nuevo archivo guardado
+                Uri.fromFile(file)
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
@@ -99,7 +117,8 @@ class AddPublicationViewModel(
         }
     }
 
+
     fun clearSuccessFlag() {
-        uiState = uiState.copy(saveSuccess = false)
+        uiState = AddPublicationUiState()
     }
 }
