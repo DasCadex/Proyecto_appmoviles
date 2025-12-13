@@ -99,6 +99,9 @@ class AddPublicationViewModel(
     }
 
 
+
+
+
     private suspend fun saveImageToInternalStorage(context: Context, uri: Uri): Uri? {
         return withContext(Dispatchers.IO) {
             try {
@@ -116,7 +119,6 @@ class AddPublicationViewModel(
             }
         }
     }
-
 
     fun clearSuccessFlag() {
         uiState = AddPublicationUiState()

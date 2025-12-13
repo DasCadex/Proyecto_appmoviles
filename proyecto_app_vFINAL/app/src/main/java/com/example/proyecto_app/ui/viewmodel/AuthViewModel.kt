@@ -8,6 +8,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
 import com.example.proyecto_app.data.repository.UserRepository
+import com.example.proyecto_app.domian.validation.validateConfirm
+import com.example.proyecto_app.domian.validation.validateEmail
+import com.example.proyecto_app.domian.validation.validateLoginInput
+import com.example.proyecto_app.domian.validation.validateNameUserLetterOnly
+import com.example.proyecto_app.domian.validation.validatePhoneDigitsOnly
+import com.example.proyecto_app.domian.validation.validateStrongPassword
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -61,41 +67,34 @@ class AuthViewModel(
 
 
     fun onLoginInputChange(value: String) {
-        _login.update { it.copy(loginInput = value, loginInputError = null) }
+        val error = validateLoginInput(value) // Validamos al escribir
+        _login.update { it.copy(loginInput = value, loginInputError = error) }
         recomputeLoginCanSubmit()
     }
 
     fun onLoginPassChange(value: String) {
-        _login.update { it.copy(pass = value) }
+        _login.update { it.copy(pass = value) } // La contraseña se valida usualmente solo al enviar o longitud mínima
         recomputeLoginCanSubmit()
     }
 
     fun recomputeLoginCanSubmit() {
         val s = _login.value
-        val can = s.loginInput.isNotBlank() && s.pass.isNotBlank()
+        // Solo permitimos enviar si hay texto y NO hay errores visibles
+        val can = s.loginInput.isNotBlank() && s.pass.isNotBlank() && s.loginInputError == null
         _login.update { it.copy(canSubmit = can) }
     }
 
-
     fun submitLogin() {
+        // ... (Lógica de submitLogin igual, asegurando llamar a repository.login)
         val s = _login.value
         if (!s.canSubmit || s.isSubmitting) return
 
         viewModelScope.launch {
             _login.update { it.copy(isSubmitting = true, errorMsg = null) }
-
-            // Llamada al repositorio (suspendida)
-            // repository.login devuelve Result<LoginResponseDto>
             val result = repository.login(s.loginInput.trim(), s.pass)
-
             _login.update { currentState ->
                 if (result.isSuccess) {
-
-                    val userDto: LoginResponseDto? = result.getOrNull()
-
-                    //Lo asignamos.
-                    _currentUser.value = userDto
-
+                    _currentUser.value = result.getOrNull()
                     currentState.copy(isSubmitting = false, success = true, errorMsg = null)
                 } else {
                     currentState.copy(
@@ -112,48 +111,62 @@ class AuthViewModel(
         _login.update { it.copy(success = false, errorMsg = null, loginInput = "", pass = "") }
     }
 
+    // --- REGISTRO (CORREGIDO) ---
 
     fun onNameChange(value: String) {
-        _register.update { it.copy(nameuser = value, nameError = null) }
+        val error = validateNameUserLetterOnly(value) // Validamos
+        _register.update { it.copy(nameuser = value, nameError = error) }
         recomputeRegisterCanSubmit()
     }
 
     fun onRegisterEmailChange(value: String) {
-        _register.update { it.copy(email = value, emailError = null) }
+        val error = validateEmail(value) // Validamos
+        _register.update { it.copy(email = value, emailError = error) }
         recomputeRegisterCanSubmit()
     }
 
     fun onPhoneChange(value: String) {
-        _register.update { it.copy(phone = value, phoneError = null) }
+        // Filtramos para que solo entren dígitos si es necesario, o validamos el string completo
+        val filtered = value.filter { it.isDigit() }
+        val error = validatePhoneDigitsOnly(filtered) // Validamos
+        _register.update { it.copy(phone = filtered, phoneError = error) }
         recomputeRegisterCanSubmit()
     }
 
     fun onRegisterPassChange(value: String) {
-        _register.update { it.copy(pass = value, passError = null) }
+        val error = validateStrongPassword(value) // Validamos fuerza
+        _register.update { it.copy(pass = value, passError = error) }
+        // También validamos la confirmación en tiempo real si ya se escribió algo
+        if (_register.value.confirm.isNotEmpty()) {
+            val confirmError = validateConfirm(value, _register.value.confirm)
+            _register.update { it.copy(confirmError = confirmError) }
+        }
         recomputeRegisterCanSubmit()
     }
 
     fun onConfirmChange(value: String) {
-        _register.update { it.copy(confirm = value, confirmError = null) }
+        val error = validateConfirm(_register.value.pass, value) // Validamos coincidencia
+        _register.update { it.copy(confirm = value, confirmError = error) }
         recomputeRegisterCanSubmit()
     }
 
     private fun recomputeRegisterCanSubmit() {
         val s = _register.value
-        val filled = s.nameuser.isNotBlank() && s.email.isNotBlank() &&
+        // Verifica que NO haya errores y que los campos NO estén vacíos
+        val hasNoErrors = s.nameError == null && s.emailError == null &&
+                s.phoneError == null && s.passError == null && s.confirmError == null
+
+        val isFilled = s.nameuser.isNotBlank() && s.email.isNotBlank() &&
                 s.phone.isNotBlank() && s.pass.isNotBlank() && s.confirm.isNotBlank()
-        _register.update { it.copy(canSubmit = filled) }
+
+        _register.update { it.copy(canSubmit = isFilled && hasNoErrors) }
     }
 
     fun submitRegister() {
         val s = _register.value
         if (!s.canSubmit || s.isSubmitting) return
 
-        if (s.pass != s.confirm) {
-            _register.update { it.copy(errorMsg = "Las contraseñas no coinciden") }
-            return
-        }
-
+        // ... (resto de la lógica de submitRegister se mantiene)
         viewModelScope.launch {
             _register.update { it.copy(isSubmitting = true, errorMsg = null, success = false) }
 
@@ -163,7 +176,7 @@ class AuthViewModel(
                 s.phone.trim(),
                 s.pass
             )
-
+            // ... (manejo de respuesta igual)
             _register.update { currentState ->
                 if (result.isSuccess) {
                     currentState.copy(isSubmitting = false, success = true, errorMsg = null)
@@ -171,7 +184,7 @@ class AuthViewModel(
                     currentState.copy(
                         isSubmitting = false,
                         success = false,
-                        errorMsg = result.exceptionOrNull()?.message ?: "No se pudo registrar el usuario"
+                        errorMsg = result.exceptionOrNull()?.message ?: "Error al registrar"
                     )
                 }
             }

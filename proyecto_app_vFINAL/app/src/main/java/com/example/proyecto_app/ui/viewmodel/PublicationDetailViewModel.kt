@@ -44,8 +44,8 @@ class PublicationDetailViewModel(
 ) : ViewModel() {
 
     private val publicationId: Long
-    // 🔴 CORRECCIÓN: Evitamos leer como String si ya es Long para no causar crash
 
+    // 🔴 CORRECCIÓN: Evitamos leer como String si ya es Long para no causar crash
     init {
         // 1. Intentamos leerlo como Long (lo normal)
         val idLong = savedStateHandle.get<Long>("publicationId")
